@@ -1,0 +1,106 @@
+name: 🚀 Shipping Build test for front end
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main", "develop" ]
+
+jobs:
+  Deploy:
+    name: 🎉 Deploy
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [20.x]
+    
+    steps:
+      - name: 🚚 Get latest code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        id: cache-node-modules
+        with:
+          path: '**/node_modules'
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      
+      - name: 🔨 Install Dependencies
+        if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        run: npm ci
+        env:
+          NODE_OPTIONS: "--max_old_space_size=4096"
+          CI: false
+      
+      - name: 🏗 Build Project
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "Building for PRODUCTION"
+            npm run build -- --mode production
+          else
+            echo "Building for STAGING"
+            cp .env.staging .env
+            npm run build -- --mode staging
+          fi
+        env:
+          NODE_OPTIONS: "--max_old_space_size=4096"
+          VITE_USE_PRODUCTION: ${{ github.ref == 'refs/heads/main' && 'true' || 'false' }}
+          VITE_BACKEND_URL: ${{ github.ref == 'refs/heads/main' && 'https://main.cosekeeboard.com' || 'https://apitest.cosekeeboard.com' }}
+          VITE_ADOBE_CLIENT_ID: ${{ secrets.ADOBE_CLIENT_ID }}
+      
+      - name: 📂 Check build output
+        run: ls -R dist/
+      
+      - name: Debug Environment Variables
+        run: |
+          echo "NODE_OPTIONS: $NODE_OPTIONS"
+          echo "VITE_USE_PRODUCTION: $VITE_USE_PRODUCTION"
+          echo "VITE_BACKEND_URL: $VITE_BACKEND_URL"
+          echo "VITE_ADOBE_CLIENT_ID: $VITE_ADOBE_CLIENT_ID"
+      
+      - name: Debug Environment Variables
+        run: |
+          echo "VITE_USE_PRODUCTION: $VITE_USE_PRODUCTION"
+          echo "VITE_BACK_URL: $VITE_BACKEND_URL"
+          echo "VITE_ADOBE_CLIENT_ID: $VITE_ADOBE_CLIENT_ID"
+      
+      - name: 📂 Deploy to Production
+        if: github.ref == 'refs/heads/main'
+        uses: SamKirkland/FTP-Deploy-Action@4.3.3
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: dist/
+          exclude: |
+            .htaccess
+          dangerous-clean-slate: false
+        continue-on-error: true
+      
+      - name: 📂 Deploy to Staging
+        if: github.ref == 'refs/heads/develop'
+        uses: SamKirkland/FTP-Deploy-Action@4.3.3
+        with:
+          server: ${{ secrets.STAGING_FTP_SERVER }}
+          username: ${{ secrets.STAGING_FTP_USERNAME }}
+          password: ${{ secrets.STAGING_FTP_PASSWORD }}
+          local-dir: dist/
+          exclude: |
+            .htaccess
+          dangerous-clean-slate: false
+        continue-on-error: true
+      
+      - name: 🧹 Cleanup
+        run: |
+          rm -rf node_modules/
+          rm -rf .cache/
