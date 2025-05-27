@@ -55,7 +55,7 @@ jobs:
         env:
           NODE_OPTIONS: "--max_old_space_size=4096"
           VITE_USE_PRODUCTION: ${{ github.ref == 'refs/heads/main' && 'true' || 'false' }}
-          VITE_BACKEND_URL: ${{ github.ref == 'refs/heads/main' && 'https://todo.cosekeeboard.com' || 'https://staging.cosekeeboard.com' }}
+          VITE_BACKEND_URL: ${{ github.ref == 'refs/heads/main' && 'https://apitodo.cosekeeboard.com' || 'https://apitodo.cosekeeboard.com' }}
           VITE_ADOBE_CLIENT_ID: ${{ secrets.ADOBE_CLIENT_ID }}
       
       - name: 📂 Check build output
